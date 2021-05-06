@@ -179,7 +179,3 @@ class Matrix:
         if(inv):
             inv.print_out()
             (self*inv).print_out()
-
-m = Matrix(3,3,[1,3,3,4,6,6,7,7,9])
-print(m.determinant())
-m.mult_by_inv()
