@@ -1,3 +1,5 @@
+import copy
+
 class Matrix:
     def __init__(self, height, width, arr=[], fill=False):
         self.height = height
@@ -24,7 +26,7 @@ class Matrix:
         for y in range(self.height):
             output = ""
             for x in range(self.width):
-                output += str(self.get_val(y,x))+", "
+                output += str(round(self.get_val(y,x),2))+", "
             print(output)
         print("----")
 
@@ -108,7 +110,7 @@ class Matrix:
         m = Matrix(self.width, self.height, [], True)
         for y in range(self.height):
             for x in range(self.width):
-                m.set_val(y, x, self.get_val(x,y))
+                m.set_val(x, y, self.get_val(y,x))
         return m
 
     #used for determining inverse
@@ -148,19 +150,6 @@ class Matrix:
                 arr.append(self.cofactor(y,x))
         return Matrix(self.height, self.width, arr).transpose()
 
-    #for finding inverse
-    @staticmethod
-    def adj_matrix(size):
-        start_sign = 1
-        output_arr = []
-        for y in range(size):
-            curr_sign = start_sign
-            for x in range(size):
-                output_arr.append(curr_sign)
-                curr_sign *= -1
-            start_sign *= -1
-        return Matrix(size, size, output_arr)
-
     def inverse(self):
         if(self.width != self.height):
             raise ValueError("Cannot find determinant of non square matrix")
@@ -170,8 +159,30 @@ class Matrix:
         if(det == 0):
             return None
         adj = self.adjoint()
-        adj.print_out()
-        return (adj) * (1/det)
+        return (adj) * (1/float(det))
+
+    def __truediv__(self, m2):
+        if isinstance(m2, Matrix):
+            inv = m2.inverse()
+            if(inv):
+                return self * inv
+            return None
+        else:
+            return self.scale(float(1/m2))
+
+    def __div__(self, m2):
+        return self.__truediv__(m2)
+
+    def __idiv__(self, m2):
+        return self / m2
+
+    def trace(self):
+        if(self.width != self.height):
+            raise ValueError("Cannot find trace of non square matrix")
+        t = 0
+        for x in range(self.width):
+            t += self.get_val(x,x)
+        return t
 
     #for testing
     def mult_by_inv(self):
@@ -179,3 +190,79 @@ class Matrix:
         if(inv):
             inv.print_out()
             (self*inv).print_out()
+        else:
+            print("det is 0")
+
+    def __pow__(self, p:int):
+        if(self.width != self.height):
+            raise ValueError("Can only raise square matrix to power")
+        if(p == 0):
+            return Matrix.identity(self.width)
+        if(p < 0):
+            inv = self.inverse()
+            if(inv):
+                m = inv
+                for i in range(abs(p)-1):
+                    m *= inv
+                return m
+            return None
+        m = self
+        for i in range(p-1):
+            m *= self
+        return m
+
+    def swap_rows(self,r1,r2):
+        for x in range(self.width):
+            i1 = self.get_i(r1, x)
+            i2 = self.get_i(r2, x)
+            self.arr[i1], self.arr[i2] = self.arr[i2], self.arr[i1]
+
+    #taken from wikipedia page for rref
+    def rref(self):
+        reduced = copy.deepcopy(self)
+        lead = 0
+        for y in range(reduced.height):
+            if reduced.width <= lead:
+                return reduced
+            i = y
+            while reduced.get_val(i,lead) == 0:
+                i += 1
+                if i == reduced.height:
+                    i = y
+                    lead += 1
+                    if reduced.width == lead:
+                        return reduced
+
+            if i != y:
+                reduced.swap_rows(i, y)
+
+            lv = float(reduced.get_val(y, lead))
+            for x in range(reduced.width):
+                index = reduced.get_i(y,x)
+                reduced.arr[index] /= lv
+            
+            for i in range(reduced.height):
+                if i != y:
+                    lv = reduced.get_val(i,lead)
+                    for x in range(reduced.width):
+                        index = reduced.get_i(i, x)
+                        reduced.arr[index] -= lv * reduced.get_val(y,x)
+            lead += 1
+        return reduced
+
+    def get_row(self, r):
+        row = []
+        for x in range(self.width):
+            row.append(self.get_val(r,x))
+        return row
+
+    def get_column(self, c):
+        col = []
+        for y in range(self.height):
+            col.append(self.get_val(y,c))
+        return col
+
+    #takes in an augmented matrix representing a linear equation and does rref and then takes the last column and returns it as an array
+    def solution(self):
+        reduced = self.rref()
+        return reduced.get_column(self.width-1)
